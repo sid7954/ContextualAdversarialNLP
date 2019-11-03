@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 import numpy as np
 import dataloader
 from train_classifier import Model
@@ -442,7 +443,7 @@ def main():
                         type=int,
                         help="Batch size to get prediction")
     parser.add_argument("--data_size",
-                        default=1000,
+                        default=100,
                         type=int,
                         help="Data size to create adversaries")
     parser.add_argument("--perturb_ratio",
@@ -558,7 +559,10 @@ def main():
             nums_queries.append(num_queries)
         if true_label != new_label:
             adv_failures += 1
-
+        print("OLD TEXT: "+ ' '.join(text))
+        print("NEW TEXT: "+ new_text)
+        print("NUM CHANGED: "+str(num_changed))
+        sys.stdout.flush()
         changed_rate = 1.0 * num_changed / len(text)
 
         if true_label == orig_label and true_label != new_label:
