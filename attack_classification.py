@@ -370,9 +370,18 @@ def contextual_attack(text_ls, true_label, predictor, maskedLM_predictor , stop_
             new_texts.append(text_ls[:idx] + ['[MASK]'] + text_ls[min(idx + 1, len_text):])
             masked_lm_probs=maskedLM_predictor(new_texts, batch_size=batch_size)
             values,indices = torch.topk(masked_lm_probs, 25, dim=-1) 
-            indices=indices.numpy()
+            indices=indices.cpu().numpy()
+            print(np.shape(indices))
+            print(idx2word[idx])
+            print(word)
+            print(' '.join(text_ls))
+            #print(word2idx[text_ls[0]])
+            for i in range(25):
+                print(idx2word[indices[0][idx][i]])
+            exit()
             for i in range(len(indices)):
-                synonyms.append( idx2word(indices[i]) if indices[i] in idx2word)
+                if indices[i] in idx2word:
+                    synonyms.append( idx2word[indices[i]])# if indices[i] in idx2word)
             synonyms_all.append((idx, synonyms))
 
         # words_perturb_idx = [word2idx[word] for idx, word in words_perturb if word in word2idx]
