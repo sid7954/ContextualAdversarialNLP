@@ -371,24 +371,30 @@ def contextual_attack(text_ls, true_label, predictor, maskedLM_predictor , stop_
         # find synonyms
         new_texts=[]
         synonyms_all = []
+        print(' '.join(text_ls))
         for idx, word in words_perturb:
             synonyms=[]
+            if idx >=128:
+                continue
             new_texts.append(text_ls[:idx] + ['[MASK]'] + text_ls[min(idx + 1, len_text):])
             masked_lm_probs=maskedLM_predictor.text_pred(new_texts, batch_size=batch_size)
+            #masked_lm_probs=masked_lm_probs.cpu().numpy()
+            #print(np.shape(masked_lm_probs))
+            #exit()
             values,indices = torch.topk(masked_lm_probs, 25, dim=-1) 
-            tokens=maskedLM_predictor.convert_ids_to_tokens(indices)
-            tokens=tokens.cpu().numpy()
-            print(np.shape(tokens))
-            print(idx2word[idx])
-            print(word)
-            print(' '.join(text_ls))
-            #print(word2idx[text_ls[0]])
+            tokens=maskedLM_predictor.convert_ids_to_tokens(indices.view(-1).cpu().numpy())
+            tokens=np.reshape(tokens,(1,128,-1))
+            #print(np.shape(tokens))
+            #print(word+" "+str(idx))
+            #print(' '.join(text_ls))
             for i in range(25):
-                print(idx2word[indices[0][idx][i]])
-            exit()
-            for i in range(len(indices)):
-                if indices[i] in idx2word:
-                    synonyms.append( idx2word[indices[i]])# if indices[i] in idx2word)
+                word=tokens[0][idx][i]
+                if word in word2idx:
+                    synonyms.append(word)
+                #print(tokens[0][idx][i])
+            #for i in range(len(indices)):
+            #    if indices[i] in idx2word:
+            #        synonyms.append( idx2word[indices[i]])# if indices[i] in idx2word)
             synonyms_all.append((idx, synonyms))
 
         # words_perturb_idx = [word2idx[word] for idx, word in words_perturb if word in word2idx]
@@ -404,8 +410,10 @@ def contextual_attack(text_ls, true_label, predictor, maskedLM_predictor , stop_
         text_prime = text_ls[:]
         text_cache = text_prime[:]
         num_changed = 0
+        #print("START####")
         for idx, synonyms in synonyms_all:
             new_texts = [text_prime[:idx] + [synonym] + text_prime[min(idx + 1, len_text):] for synonym in synonyms]
+            #print(new_texts)
             new_probs = predictor(new_texts, batch_size=batch_size)
 
             # compute semantic similarity
@@ -695,7 +703,7 @@ def main():
     stop_words_set = criteria.get_stopwords()
     print('Start attacking!')
     for idx, (text, true_label) in enumerate(data):
-        if idx % 20 == 0:
+        if idx % 2 == 0:
             print('{} samples out of {} have been finished!'.format(idx, args.data_size))
         if args.perturb_ratio > 0.:
             new_text, num_changed, orig_label, \
@@ -731,9 +739,9 @@ def main():
             nums_queries.append(num_queries)
         if true_label != new_label:
             adv_failures += 1
-        print("OLD TEXT: "+ ' '.join(text))
-        print("NEW TEXT: "+ new_text)
-        print("NUM CHANGED: "+str(num_changed))
+        #print("OLD TEXT: "+ ' '.join(text))
+        #print("NEW TEXT: "+ new_text)
+        #print("NUM CHANGED: "+str(num_changed))
         sys.stdout.flush()
         changed_rate = 1.0 * num_changed / len(text)
 
