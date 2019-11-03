@@ -102,7 +102,6 @@ class NLI_infer_BERT(nn.Module):
 class Contextual_synonyms_BERT(nn.Module):
     def __init__(self,
                  pretrained_dir,
-                 nclasses,
                  max_seq_length=128,
                  batch_size=32):
         super(Contextual_synonyms_BERT, self).__init__()
@@ -628,7 +627,9 @@ def main():
         model = NLI_infer_BERT(args.target_model_path, nclasses=args.nclasses, max_seq_length=args.max_seq_length)
     predictor = model.text_pred
     print("Model built!")
-
+    maskedLM = Contextual_synonyms_BERT(args.target_model_path, max_seq_length=args.max_seq_length)
+    maskedLM_predictor=maskedLM.text_pred
+    print("Masked LM BERT built!")
     # prepare synonym extractor
     # build dictionary via the embedding file
     idx2word = {}
@@ -691,6 +692,15 @@ def main():
                                                     batch_size=args.batch_size)
         else:
             new_text, num_changed, orig_label, \
+            new_label, num_queries = contextual_attack(text, true_label, predictor, maskedLM_predictor, stop_words_set,
+                                            word2idx, idx2word, cos_sim, sim_predictor=use,
+                                            sim_score_threshold=args.sim_score_threshold,
+                                            import_score_threshold=args.import_score_threshold,
+                                            sim_score_window=args.sim_score_window,
+                                            synonym_num=args.synonym_num,
+                                            batch_size=args.batch_size)
+            '''
+            new_text, num_changed, orig_label, \
             new_label, num_queries = attack(text, true_label, predictor, stop_words_set,
                                             word2idx, idx2word, cos_sim, sim_predictor=use,
                                             sim_score_threshold=args.sim_score_threshold,
@@ -698,7 +708,7 @@ def main():
                                             sim_score_window=args.sim_score_window,
                                             synonym_num=args.synonym_num,
                                             batch_size=args.batch_size)
-
+            '''
         if true_label != orig_label:
             orig_failures += 1
         else:
