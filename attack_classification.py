@@ -107,7 +107,7 @@ class Contextual_synonyms_BERT(nn.Module):
         super(Contextual_synonyms_BERT, self).__init__()
         #construct BERT model for masked LM
         self.model = BertForMaskedLM.from_pretrained(pretrained_dir).cuda()
-
+        self.tokenizer = BertTokenizer.from_pretrained(pretrained_dir, do_lower_case=True)
         # construct dataset loader
         self.dataset = NLIDataset_BERT(pretrained_dir, max_seq_length=max_seq_length, batch_size=batch_size)
 
@@ -131,6 +131,12 @@ class Contextual_synonyms_BERT(nn.Module):
                 probs_all.append(probs)
 
         return torch.cat(probs_all, dim=0)
+
+    def convert_tokens_to_ids(self, tokens):
+        return self.tokenizer.convert_tokens_to_ids(tokens)
+
+    def convert_ids_to_tokens(self, tokens):
+        return self.tokenizer.convert_ids_to_tokens(tokens)
 
 class InputFeatures(object):
     """A single set of features of data."""
@@ -368,10 +374,11 @@ def contextual_attack(text_ls, true_label, predictor, maskedLM_predictor , stop_
         for idx, word in words_perturb:
             synonyms=[]
             new_texts.append(text_ls[:idx] + ['[MASK]'] + text_ls[min(idx + 1, len_text):])
-            masked_lm_probs=maskedLM_predictor(new_texts, batch_size=batch_size)
+            masked_lm_probs=maskedLM_predictor.text_pred(new_texts, batch_size=batch_size)
             values,indices = torch.topk(masked_lm_probs, 25, dim=-1) 
-            indices=indices.cpu().numpy()
-            print(np.shape(indices))
+            tokens=maskedLM_predictor.convert_ids_to_tokens(indices)
+            tokens=tokens.cpu().numpy()
+            print(np.shape(tokens))
             print(idx2word[idx])
             print(word)
             print(' '.join(text_ls))
@@ -637,7 +644,7 @@ def main():
     predictor = model.text_pred
     print("Model built!")
     maskedLM = Contextual_synonyms_BERT(args.target_model_path, max_seq_length=args.max_seq_length)
-    maskedLM_predictor=maskedLM.text_pred
+    maskedLM_predictor=maskedLM #.text_pred
     print("Masked LM BERT built!")
     # prepare synonym extractor
     # build dictionary via the embedding file
