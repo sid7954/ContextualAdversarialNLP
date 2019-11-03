@@ -14,7 +14,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, SequentialSampler, TensorDataset
 
 from BERT.tokenization import BertTokenizer
-from BERT.modeling import BertForSequenceClassification, BertConfig
+from BERT.modeling import BertForSequenceClassification, BertConfig, BertForMaskedLM
 
 
 class USE(object):
@@ -97,6 +97,39 @@ class NLI_infer_BERT(nn.Module):
 
         return torch.cat(probs_all, dim=0)
 
+
+class Contextual_synonyms_BERT(nn.Module):
+    def __init__(self,
+                 pretrained_dir,
+                 nclasses,
+                 max_seq_length=128,
+                 batch_size=32):
+        super(Contextual_synonyms_BERT, self).__init__()
+        self.model = BertForMaskedLM.from_pretrained(pretrained_dir, num_labels=nclasses).cuda()
+
+        # construct dataset loader
+        self.dataset = NLIDataset_BERT(pretrained_dir, max_seq_length=max_seq_length, batch_size=batch_size)
+
+    def text_pred(self, text_data, batch_size=32):
+        # Switch the model to eval mode.
+        self.model.eval()
+
+        # transform text data into indices and create batches
+        dataloader = self.dataset.transform_text(text_data, batch_size=batch_size)
+
+        probs_all = []
+        #         for input_ids, input_mask, segment_ids in tqdm(dataloader, desc="Evaluating"):
+        for input_ids, input_mask, segment_ids in dataloader:
+            input_ids = input_ids.cuda()
+            input_mask = input_mask.cuda()
+            segment_ids = segment_ids.cuda()
+
+            with torch.no_grad():
+                logits = self.model(input_ids, segment_ids, input_mask)
+                probs = nn.functional.softmax(logits, dim=-1)
+                probs_all.append(probs)
+
+        return torch.cat(probs_all, dim=0)
 
 class InputFeatures(object):
     """A single set of features of data."""
