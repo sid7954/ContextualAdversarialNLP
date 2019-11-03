@@ -1,4 +1,4 @@
-# TextFooler
+# Forked from TextFooler
 A Model for Natural Language Attack on Text Classification and Inference
 
 This is the source code for the paper: [Jin, Di, et al. "Is BERT Really Robust? Natural Language Attack on Text Classification and Entailment." arXiv preprint arXiv:1907.11932 (2019)](https://arxiv.org/pdf/1907.11932.pdf). If you use the code, please cite the paper:
