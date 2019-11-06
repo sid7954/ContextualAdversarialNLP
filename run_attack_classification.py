@@ -15,7 +15,7 @@ command = 'python attack_classification.py --dataset_path data/yelp ' \
           '--target_model_path bert-base-uncased ' \
           '--max_seq_length 128 --batch_size 32 ' \
           '--counter_fitting_embeddings_path data/counter-fitted-vectors.txt ' \
-          '--counter_fitting_cos_sim_path data/cos_sim_counter_fitting.npy '
-          # '--USE_cache_path /scratch/jindi/tf_cache'
+          '--counter_fitting_cos_sim_path data/cos_sim_counter_fitting.npy ' \
+          '--USE_cache_path tf_cache'
 
 os.system(command)

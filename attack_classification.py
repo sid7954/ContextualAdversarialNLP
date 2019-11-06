@@ -83,7 +83,7 @@ class NLI_infer_BERT(nn.Module):
 
         # transform text data into indices and create batches
         dataloader = self.dataset.transform_text(text_data, batch_size=batch_size)
-
+        #print("Text Data Size is "+str(np.shape(text_data)))
         probs_all = []
         #         for input_ids, input_mask, segment_ids in tqdm(dataloader, desc="Evaluating"):
         for input_ids, input_mask, segment_ids in dataloader:
@@ -95,14 +95,17 @@ class NLI_infer_BERT(nn.Module):
                 logits = self.model(input_ids, segment_ids, input_mask)
                 probs = nn.functional.softmax(logits, dim=-1)
                 probs_all.append(probs)
-
+                #print(np.shape(probs.cpu().numpy()))
+                #print(len(probs_all))
+                
+        #if probs_all:
         return torch.cat(probs_all, dim=0)
 
 
 class Contextual_synonyms_BERT(nn.Module):
     def __init__(self,
                  pretrained_dir,
-                 max_seq_length=128,
+                 max_seq_length=256,
                  batch_size=32):
         super(Contextual_synonyms_BERT, self).__init__()
         #construct BERT model for masked LM
@@ -358,7 +361,7 @@ def contextual_attack(text_ls, true_label, predictor, maskedLM_predictor , stop_
         import_scores = (orig_prob - leave_1_probs[:, orig_label] + (leave_1_probs_argmax != orig_label).float() * (
                     leave_1_probs.max(dim=-1)[0] - torch.index_select(orig_probs, 0,
                                                                       leave_1_probs_argmax))).data.cpu().numpy()
-
+        
         # get words to perturb ranked by importance scorefor word in words_perturb
         words_perturb = []
         for idx, score in sorted(enumerate(import_scores), key=lambda x: x[1], reverse=True):
@@ -367,14 +370,14 @@ def contextual_attack(text_ls, true_label, predictor, maskedLM_predictor , stop_
                     words_perturb.append((idx, text_ls[idx]))
             except:
                 print(idx, len(text_ls), import_scores.shape, text_ls, len(leave_1_texts))
-
+        #print("Generated words_perturb")
         # find synonyms
         new_texts=[]
         synonyms_all = []
-        print(' '.join(text_ls))
+        #print(' '.join(text_ls))
         for idx, word in words_perturb:
             synonyms=[]
-            if idx >=128:
+            if idx >=127:
                 continue
             new_texts.append(text_ls[:idx] + ['[MASK]'] + text_ls[min(idx + 1, len_text):])
             masked_lm_probs=maskedLM_predictor.text_pred(new_texts, batch_size=batch_size)
@@ -385,18 +388,24 @@ def contextual_attack(text_ls, true_label, predictor, maskedLM_predictor , stop_
             tokens=maskedLM_predictor.convert_ids_to_tokens(indices.view(-1).cpu().numpy())
             tokens=np.reshape(tokens,(1,128,-1))
             #print(np.shape(tokens))
+            #exit()
             #print(word+" "+str(idx))
             #print(' '.join(text_ls))
             for i in range(25):
                 word=tokens[0][idx][i]
                 if word in word2idx:
                     synonyms.append(word)
-                #print(tokens[0][idx][i])
+                #print(tokens[0][idx+1][i]+" ",end="")
+            #print("\n")
+            #for i in range(25):
+            #    print(tokens[0][idx][i]+" ",end="")
+            #print("\n")
             #for i in range(len(indices)):
             #    if indices[i] in idx2word:
             #        synonyms.append( idx2word[indices[i]])# if indices[i] in idx2word)
-            synonyms_all.append((idx, synonyms))
-
+            if synonyms:
+                synonyms_all.append((idx, synonyms))
+            #exit()
         # words_perturb_idx = [word2idx[word] for idx, word in words_perturb if word in word2idx]
         # synonym_words, _ = pick_most_similar_words_batch(words_perturb_idx, cos_sim, idx2word, synonym_num, 0.5)
         
@@ -410,12 +419,14 @@ def contextual_attack(text_ls, true_label, predictor, maskedLM_predictor , stop_
         text_prime = text_ls[:]
         text_cache = text_prime[:]
         num_changed = 0
-        #print("START####")
+        #print("Generated Synonyms")
         for idx, synonyms in synonyms_all:
             new_texts = [text_prime[:idx] + [synonym] + text_prime[min(idx + 1, len_text):] for synonym in synonyms]
             #print(new_texts)
-            new_probs = predictor(new_texts, batch_size=batch_size)
-
+            if new_texts:
+                new_probs = predictor(new_texts, batch_size=batch_size)
+            else:
+                continue
             # compute semantic similarity
             if idx >= half_sim_score_window and len_text - idx - 1 >= half_sim_score_window:
                 text_range_min = idx - half_sim_score_window
@@ -458,9 +469,6 @@ def contextual_attack(text_ls, true_label, predictor, maskedLM_predictor , stop_
                     num_changed += 1
             text_cache = text_prime[:]
         return ' '.join(text_prime), num_changed, orig_label, torch.argmax(predictor([text_prime])), num_queries
-
-
-
 
 def random_attack(text_ls, true_label, predictor, perturb_ratio, stop_words_set, word2idx, idx2word, cos_sim,
                   sim_predictor=None, import_score_threshold=-1., sim_score_threshold=0.5, sim_score_window=15,
@@ -600,7 +608,7 @@ def main():
                         type=float,
                         help="Required mininum importance score.")
     parser.add_argument("--sim_score_threshold",
-                        default=0.7,
+                        default=0.85,
                         type=float,
                         help="Required minimum semantic similarity score.")
     parser.add_argument("--synonym_num",
@@ -739,9 +747,9 @@ def main():
             nums_queries.append(num_queries)
         if true_label != new_label:
             adv_failures += 1
-        #print("OLD TEXT: "+ ' '.join(text))
-        #print("NEW TEXT: "+ new_text)
-        #print("NUM CHANGED: "+str(num_changed))
+        print("OLD TEXT: "+ ' '.join(text))
+        print("NEW TEXT: "+ new_text)
+        print("NUM CHANGED: "+str(num_changed))
         sys.stdout.flush()
         changed_rate = 1.0 * num_changed / len(text)
 
